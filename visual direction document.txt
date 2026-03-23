@@ -1,0 +1,702 @@
+2. Pixel-by-pixel implementation brief
+Use this as the visual direction document.
+
+Overall style
+Match the Kimi reference site structure and spacing as closely as possible
+
+Preserve UniMatch’s current color identity
+
+Aim for:
+
+clean white/light backgrounds
+
+soft section separation
+
+card-based content blocks
+
+strong hero hierarchy
+
+generous spacing
+
+polished CTA/button placement
+
+balanced typography
+
+modern SaaS/education landing page feel
+
+Header
+Height: slim, modern, sticky
+
+Left: logo icon + “UniMatch”
+
+Center: nav items aligned horizontally
+
+How It Works
+
+Features or Why Choose
+
+About
+
+Universities
+
+Right:
+
+Login
+
+Create an account
+
+Mobile:
+
+hamburger or stacked responsive nav
+
+CTAs still accessible
+
+Hero section
+Large, visually dominant first fold
+
+Headline remains strong and student-focused
+
+Existing UniMatch copy should remain, but improve structure
+
+Add a clean trust metric row or cards:
+
+X Universities
+
+Y Departments
+
+Z Students helped
+
+Main CTA:
+
+Find My Universities
+
+Secondary CTA:
+
+Learn More
+
+Learn More should visually sit lower in the hero, consistent with your request
+
+Slider below hero
+Use a wide horizontal carousel
+
+Show leading private universities with image/logo + name overlay
+
+Avoid clutter
+
+Smooth transitions
+
+Optional caption text like “Leading private universities in Dhaka”
+
+Section rhythm
+Recommended section order:
+
+Header
+
+Hero
+
+Trust stats
+
+University slider
+
+How It Works
+
+Why Choose UniMatch
+
+Ad/partner banner slider
+
+CTA
+
+Footer
+
+How It Works cards
+4 cards in a row on desktop, stack on mobile
+
+Use icons and short descriptions
+
+Replace the old HSC-only wording with the broader “GPA” wording
+
+Why Choose section
+4 cards instead of 3
+
+Equal card height
+
+Moderate shadow or border
+
+Keep icons simple and premium
+
+About page
+Not article/blog style
+
+Should feel like a modern product story page
+
+Use:
+
+visual timeline
+
+problem/solution split layout
+
+challenge cards
+
+infographic numbers/icons
+
+Flow:
+
+Problem headline
+
+Student pain points
+
+Why current university search is fragmented
+
+How UniMatch solves it
+
+CTA
+
+Universities page
+Structured like a clean directory
+
+Left/top filter controls
+
+Grid/list of university cards
+
+Cards should show:
+
+name
+
+area/location
+
+ranking
+
+fee range
+
+UGC status
+
+top faculties or departments
+
+Clicking goes to detail page
+
+University detail page
+University summary top section
+
+Contact info visible
+
+Website CTA visible
+
+Departments sorted alphabetically
+
+Each department card includes:
+
+title
+
+total cost
+
+min GPA
+
+waiver note
+
+match indicator if logged in
+
+Add ad slider between content groups if needed
+
+Form flow
+Same high-quality card-centered wizard
+
+Cleaner, simpler inputs
+
+Step labels obvious
+
+Progress remains visible
+
+Inputs less “technical”, more student-friendly
+
+Footer
+Left: logo/name
+
+Center or left-center: quick links
+
+Right: social icons
+
+Facebook
+
+Instagram
+
+WhatsApp
+
+Email
+
+Ads
+Must not interrupt core task flow
+
+Best placements:
+
+after hero or slider
+
+between content sections
+
+between batches of university cards
+
+not between every form step
+
+3. Page inventory based on the Kimi site structure
+A. Landing page
+Purpose:
+
+Introduce product
+
+Build trust
+
+Drive users to begin search
+
+Support browsing via Universities/About/Login/Create Account
+
+Sections:
+
+Sticky header
+
+Hero
+
+Trust counters
+
+University slider
+
+How It Works
+
+Why Choose UniMatch
+
+Ad/banner section
+
+CTA
+
+Footer
+
+B. About page
+Purpose:
+
+Explain the problem and origin of UniMatch
+
+Educate and persuade
+
+Build trust
+
+Sections:
+
+Shared header
+
+Problem statement hero
+
+Student challenge cards
+
+Why university selection is difficult
+
+How UniMatch solves it
+
+CTA
+
+Shared footer
+
+C. Universities page
+Purpose:
+
+Directory for browsing universities without using the recommendation flow
+
+Sections:
+
+Shared header
+
+Page intro
+
+Filter/sort/search controls
+
+University cards grid
+
+Ad/banner slider
+
+Footer
+
+D. University detail page
+Purpose:
+
+Deep info for one university
+
+Sections:
+
+Shared header
+
+University hero/info summary
+
+Contacts / website / location / UGC status
+
+Departments/programs list
+
+Scholarship/waiver notes
+
+Ad/banner slot
+
+Footer
+
+E. Login page
+Purpose:
+
+User authentication entry
+
+Required for personalized score visibility
+
+F. Create account page
+Purpose:
+
+New user registration
+
+G. Find My Universities flow
+Purpose:
+
+Personalized intake wizard
+
+Steps:
+
+Academic Background
+
+Financial Constraints
+
+Location Preferences
+
+Academic Interests
+
+Customize Preferences
+
+Processing
+
+Results
+
+H. Results page
+Purpose:
+
+Personalized recommendations
+
+Should maintain shared visual consistency with the rest of the site
+
+4. Component list to recreate the same layout style
+Layout components
+SiteLayout
+
+SiteHeader
+
+SiteFooter
+
+SectionContainer
+
+PageHero
+
+Landing page components
+LandingHero
+
+TrustStats
+
+UniversityCarousel
+
+HowItWorksSection
+
+WhyChooseSection
+
+PartnerAdCarousel
+
+CTASection
+
+SocialLinks
+
+About page components
+AboutHero
+
+ProblemStatement
+
+ChallengeCards
+
+SolutionTimeline
+
+ImpactStats
+
+Universities directory components
+UniversityFilters
+
+UniversitySearch
+
+UniversityCard
+
+UniversityGrid
+
+RankingBadge
+
+FeeRangeBadge
+
+UGCStatusBadge
+
+University detail components
+UniversityOverview
+
+UniversityContactCard
+
+DepartmentCard
+
+DepartmentsList
+
+WaiverInfoCard
+
+ExternalWebsiteButton
+
+Form components
+AcademicStep
+
+FinancialStep
+
+LocationStep
+
+InterestsStep
+
+PreferencesStep
+
+ProgressIndicator
+
+AreaMultiSelect
+
+BudgetRangeSelector
+
+PriorityRanker
+
+Results components
+RecommendationCard
+
+RecommendationFilters
+
+RecommendationSummary
+
+ScoreVisibilityGate
+
+Utility/data components
+StatsCounter
+
+AdSlider
+
+EmptyState
+
+AuthPromptCard
+
+5. File-by-file coding plan for this repo
+This is tailored to the current repo structure.
+
+Existing files likely to change
+app/src/App.tsx
+Remove monolithic page responsibility
+
+Convert to router entry or page shell composition
+
+Extract landing and wizard logic into dedicated files
+
+app/src/types/index.ts
+Expand types for:
+
+Dhaka areas
+
+university detail/contact info
+
+department/program contact info
+
+scholarship/waiver structures
+
+optional auth state
+
+updated academic-interest categories
+
+revised preference ranking model
+
+app/src/data/universities.ts
+Refactor and expand:
+
+all Dhaka private universities
+
+departments/programs
+
+contact info
+
+waivers/scholarships
+
+area labels
+
+websites
+
+UGC status
+
+May be split into:
+
+app/src/data/universities.ts
+
+app/src/data/programs.ts
+
+app/src/data/areas.ts
+
+app/src/data/siteStats.ts
+
+app/src/store/appStore.ts
+Update for:
+
+new student form fields
+
+auth state if lightweight auth is added
+
+score visibility control
+
+new preference ranking
+
+selected Dhaka areas instead of districts
+
+app/src/lib/recommendationEngine.ts
+Refactor logic for:
+
+Dhaka area-based matching
+
+scholarship/waiver-aware recommendations
+
+UGC-first ordering
+
+new preference model
+
+logged-in score display handling
+
+app/src/components/form-steps/AcademicStep.tsx
+exact GPA input
+
+SSC GPA required
+
+SSC group
+
+SSC passing year
+
+app/src/components/form-steps/FinancialStep.tsx
+new budget ranges
+
+available waiver section
+
+app/src/components/form-steps/LocationStep.tsx
+replace Bangladesh districts with Dhaka area search and multi-select
+
+app/src/components/form-steps/InterestsStep.tsx
+replace faculty list with requested 11-category structure
+
+show major examples
+
+app/src/components/form-steps/WeightsStep.tsx
+replace sliders/percentages with optional ranked priorities
+
+app/src/components/RecommendationCard.tsx
+adapt score display rules
+
+align style with new public-card system
+
+app/src/components/form-steps/ResultsStep.tsx
+update sorting/filtering behavior
+
+ensure UGC-first ordering
+
+support login-gated score display
+
+New files recommended
+Routing/pages
+app/src/pages/LandingPage.tsx
+
+app/src/pages/AboutPage.tsx
+
+app/src/pages/UniversitiesPage.tsx
+
+app/src/pages/UniversityDetailPage.tsx
+
+app/src/pages/LoginPage.tsx
+
+app/src/pages/SignupPage.tsx
+
+Layout
+app/src/components/layout/SiteLayout.tsx
+
+app/src/components/layout/SiteHeader.tsx
+
+app/src/components/layout/SiteFooter.tsx
+
+Landing page sections
+app/src/components/landing/LandingHero.tsx
+
+app/src/components/landing/TrustStats.tsx
+
+app/src/components/landing/UniversityCarousel.tsx
+
+app/src/components/landing/HowItWorksSection.tsx
+
+app/src/components/landing/WhyChooseSection.tsx
+
+app/src/components/landing/PartnerAdCarousel.tsx
+
+app/src/components/landing/CTASection.tsx
+
+About page sections
+app/src/components/about/AboutHero.tsx
+
+app/src/components/about/ChallengeCards.tsx
+
+app/src/components/about/SolutionTimeline.tsx
+
+Universities directory
+app/src/components/universities/UniversityFilters.tsx
+
+app/src/components/universities/UniversityCard.tsx
+
+app/src/components/universities/UniversityOverview.tsx
+
+app/src/components/universities/DepartmentCard.tsx
+
+app/src/components/universities/DepartmentsList.tsx
+
+Shared
+app/src/components/shared/AdSlider.tsx
+
+app/src/components/shared/SocialLinks.tsx
+
+app/src/components/shared/StatsCounter.tsx
+
+app/src/components/shared/AuthPromptCard.tsx
+
+Data/helpers
+app/src/lib/data/siteStats.ts
+
+app/src/lib/location.ts
+
+app/src/lib/auth.ts or lightweight auth-state helper
+
+6. Master execution order for the implementer
+Phase 1
+Add routing
+
+Add shared layout
+
+Rename branding to UniMatch
+
+Phase 2
+Expand data model
+
+Add Dhaka area metadata
+
+Add scholarship/waiver support
+
+Phase 3
+Rebuild landing page
+
+Add social/footer/ad placements
+
+Add About page
+
+Phase 4
+Build Universities list and University detail pages
+
+Phase 5
+Rewrite form steps 1–5
+
+Phase 6
+Update recommendation engine and results behavior
+
+Enforce UGC-first ordering
+
+Add login-gated score visibility
