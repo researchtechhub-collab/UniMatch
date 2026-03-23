@@ -27,12 +27,10 @@ function movePriority(list: StudentProfile['orderedPriorities'], index: number, 
 }
 
 export function FinderPage({ onNavigate, isLoggedIn }: FinderPageProps) {
-  const { draftProfile, updateDraftProfile, submitProfile, recommendations } = useAppStore((state) => ({
-    draftProfile: state.draftProfile,
-    updateDraftProfile: state.updateDraftProfile,
-    submitProfile: state.submitProfile,
-    recommendations: state.recommendations,
-  }));
+  const draftProfile = useAppStore((state) => state.draftProfile);
+  const updateDraftProfile = useAppStore((state) => state.updateDraftProfile);
+  const submitProfile = useAppStore((state) => state.submitProfile);
+  const recommendations = useAppStore((state) => state.recommendations);
 
   const [stepIndex, setStepIndex] = useState(0);
   const [areaQuery, setAreaQuery] = useState('');

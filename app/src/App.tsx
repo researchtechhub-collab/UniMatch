@@ -15,11 +15,9 @@ function normalizePath(path: string): string {
 
 export default function App() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname || '/'));
-  const { isLoggedIn, login, submittedProfile } = useAppStore((state) => ({
-    isLoggedIn: state.isLoggedIn,
-    login: state.login,
-    submittedProfile: state.submittedProfile,
-  }));
+  const isLoggedIn = useAppStore((state) => state.isLoggedIn);
+  const login = useAppStore((state) => state.login);
+  const submittedProfile = useAppStore((state) => state.submittedProfile);
 
   useEffect(() => {
     const onPopState = () => setPath(normalizePath(window.location.pathname || '/'));
