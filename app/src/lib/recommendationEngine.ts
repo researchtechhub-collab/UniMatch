@@ -1,449 +1,146 @@
-// AI Recommendation Engine for UniMatch Bangladesh
-// Calculates match scores and generates explanations
+import { dhakaAreas, priorityOptions, type DepartmentProgram, type Recommendation, type StudentProfile, type University } from '@/types';
+import { programs, universities } from '@/data/universities';
 
-import type { 
-  StudentProfile, 
-  Program, 
-  University, 
-  Recommendation, 
-  MatchScores, 
-  ScoringWeights,
-  HSCGroup 
-} from '@/types';
-import { mockUniversities, mockPrograms } from '@/data/universities';
-
-// Default scoring weights
-const DEFAULT_WEIGHTS: ScoringWeights = {
-  affordability: 25,
-  gpaFit: 20,
-  location: 15,
-  quality: 20,
-  facilities: 10,
-  reputation: 10
+const budgetCeilings: Record<string, number> = {
+  '200,000–300,000 BDT': 300000,
+  '300,000–400,000 BDT': 400000,
+  '400,000–500,000 BDT': 500000,
+  '500,000–600,000 BDT': 600000,
+  '600,000–700,000 BDT': 700000,
+  '700,000–800,000 BDT': 800000,
+  '800,000–900,000 BDT': 900000,
+  '900,000–1,000,000 BDT': 1000000,
+  '1,000,000–1,200,000 BDT': 1200000,
+  'No Budget Constraint': Number.POSITIVE_INFINITY,
 };
 
-// Get required GPA based on student's HSC group
-function getRequiredGPAForGroup(program: Program, group: HSCGroup): number | undefined {
-  switch (group) {
-    case 'science':
-      return program.minGpaScience ?? program.minGpaRequirement;
-    case 'commerce':
-      return program.minGpaCommerce ?? program.minGpaRequirement;
-    case 'arts':
-      return program.minGpaArts ?? program.minGpaRequirement;
-    default:
-      return program.minGpaRequirement;
-  }
+const priorityWeightByRank = [1.35, 1.2, 1.05, 0.95, 0.85] as const;
+
+const areaMap = new Map(dhakaAreas.map((area) => [area.id, area]));
+const priorityIndex = new Map(priorityOptions.map((option) => [option.id, option.label]));
+
+function getBudgetScore(profile: StudentProfile, program: DepartmentProgram): number {
+  const ceiling = budgetCeilings[profile.budgetRange] ?? Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(ceiling)) return 78;
+  const ratio = program.totalCost / ceiling;
+  if (ratio <= 0.72) return 96;
+  if (ratio <= 0.85) return 88;
+  if (ratio <= 1) return 76;
+  if (ratio <= 1.12) return 58;
+  if (ratio <= 1.25) return 40;
+  return 18;
 }
 
-// Calculate affordability score (0-100)
-function calculateAffordabilityScore(student: StudentProfile, program: Program): number {
-  if (!student.maxBudgetTotal || student.maxBudgetTotal === 999999999) {
-    return 70; // Neutral if no budget constraint
-  }
-  
-  const totalCost = program.totalTuitionFee + 
-                    (program.admissionFee || 0) + 
-                    (program.otherFees || 0);
-  
-  const ratio = totalCost / student.maxBudgetTotal;
-  
-  if (ratio <= 0.5) return 100; // Very affordable (50% or less of budget)
-  if (ratio <= 0.7) return 90;  // Highly affordable
-  if (ratio <= 0.85) return 80; // Affordable
-  if (ratio <= 1.0) return 70;  // Within budget
-  if (ratio <= 1.15) return 55; // Slightly over
-  if (ratio <= 1.3) return 40;  // Moderately over
-  if (ratio <= 1.5) return 25;  // Significantly over
-  return 10; // Far over budget
+function getGpaScore(profile: StudentProfile, program: DepartmentProgram): number {
+  const margin = profile.hscGpa - program.minimumGpa;
+  if (margin >= 1) return 100;
+  if (margin >= 0.6) return 92;
+  if (margin >= 0.3) return 84;
+  if (margin >= 0) return 78;
+  if (margin >= -0.2) return 62;
+  if (margin >= -0.4) return 45;
+  return 22;
 }
 
-// Calculate GPA fit score (0-100)
-function calculateGPAFitScore(student: StudentProfile, program: Program): number {
-  const requiredGPA = getRequiredGPAForGroup(program, student.hscGroup);
-  
-  if (!requiredGPA) return 80; // No specific requirement
-  
-  const gpaDifference = student.hscGpa - requiredGPA;
-  
-  if (gpaDifference >= 1.0) return 100; // Far exceeds requirement
-  if (gpaDifference >= 0.75) return 95;
-  if (gpaDifference >= 0.5) return 90;  // Comfortably exceeds
-  if (gpaDifference >= 0.25) return 85;
-  if (gpaDifference >= 0.0) return 80;  // Meets requirement exactly
-  if (gpaDifference >= -0.25) return 65; // Just below
-  if (gpaDifference >= -0.5) return 50;  // Close but below
-  if (gpaDifference >= -0.75) return 35; // Noticeably below
-  if (gpaDifference >= -1.0) return 20;  // Significantly below
-  return 10; // Far below requirement
+function getQualityScore(university: University): number {
+  const base = university.ugcStatus === 'approved' ? 72 : 42;
+  const rankingBoost = Math.max(0, 24 - university.ranking * 1.6);
+  return Math.min(100, Math.round(base + rankingBoost));
 }
 
-// Calculate location score (0-100)
-function calculateLocationScore(student: StudentProfile, university: University): number {
-  // If no preference specified
-  if (!student.preferredDistricts || student.preferredDistricts.length === 0) {
-    return 70; // Neutral
-  }
-  
-  // Exact district match
-  if (student.preferredDistricts.includes(university.district)) {
-    return 100;
-  }
-  
-  // Check for nearby districts (simplified - Dhaka area universities)
-  const dhakaAreaDistricts = ['Dhaka', 'Gazipur', 'Narayanganj', 'Munshiganj', 'Narsingdi'];
-  const studentPrefersDhakaArea = student.preferredDistricts.some(d => dhakaAreaDistricts.includes(d));
-  const universityInDhakaArea = dhakaAreaDistricts.includes(university.district);
-  
-  if (studentPrefersDhakaArea && universityInDhakaArea) {
-    return 80; // Same general area
-  }
-  
-  // Different location
-  return 40;
+function getReputationScore(university: University): number {
+  const ageBoost = Math.min(12, new Date().getFullYear() - university.establishedYear);
+  return Math.min(100, Math.round(70 + ageBoost - university.ranking * 1.4));
 }
 
-// Calculate quality score (0-100)
-function calculateQualityScore(university: University, _program: Program): number {
-  let score = 50; // Base score
-  
-  // UGC Status factor (highest weight)
-  if (university.ugcStatus === 'green') {
-    score += 25;
-  } else if (university.ugcStatus === 'yellow') {
-    score += 10;
-  } else {
-    score -= 30; // Red status significantly reduces quality
-  }
-  
-  // National ranking factor
-  if (university.rankingNational) {
-    if (university.rankingNational <= 3) score += 15;
-    else if (university.rankingNational <= 5) score += 10;
-    else if (university.rankingNational <= 10) score += 5;
-    else if (university.rankingNational <= 15) score += 0;
-    else score -= 5;
-  }
-  
-  // Permanent campus factor
-  if (university.hasPermanentCampus) {
-    score += 5;
-  }
-  
-  // Accreditation status
-  if (university.accreditationStatus?.toLowerCase().includes('full')) {
-    score += 5;
-  }
-  
-  return Math.min(100, Math.max(0, score));
+function getFacilitiesScore(university: University): number {
+  return Math.min(100, 68 + university.facilities.length * 5);
 }
 
-// Calculate facilities score (0-100)
-function calculateFacilitiesScore(university: University, student: StudentProfile): number {
-  let score = 50; // Base score
-  
-  // Housing facilities
-  if (student.requiresHousing) {
-    if (university.hasHousingFacilities) {
-      score += 25; // Major bonus if housing is available and needed
-    } else {
-      score -= 20; // Major penalty if housing needed but not available
-    }
-  } else {
-    // If housing not needed, give small bonus for having it anyway
-    if (university.hasHousingFacilities) {
-      score += 5;
-    }
-  }
-  
-  // Permanent campus (indicates better facilities generally)
-  if (university.hasPermanentCampus) {
-    score += 15;
-  }
-  
-  // Campus size factor
-  if (university.campusAreaSqft) {
-    if (university.campusAreaSqft >= 500000) score += 10;
-    else if (university.campusAreaSqft >= 300000) score += 5;
-  }
-  
-  return Math.min(100, Math.max(0, score));
+function getAreaScore(profile: StudentProfile, university: University): number {
+  if (profile.preferredAreas.length === 0) return 70;
+  return profile.preferredAreas.includes(university.areaId) ? 98 : 48;
 }
 
-// Calculate reputation score (0-100)
-function calculateReputationScore(university: University): number {
-  let score = 50; // Base score
-  
-  // National ranking is the primary factor
-  if (university.rankingNational) {
-    // Invert ranking (rank 1 = 50 points, rank 20 = 0 points)
-    const rankingScore = Math.max(0, 50 - (university.rankingNational - 1) * 2.5);
-    score = rankingScore;
-  }
-  
-  // Established year factor (older universities generally more established)
-  if (university.establishedYear) {
-    const yearsEstablished = new Date().getFullYear() - university.establishedYear;
-    if (yearsEstablished >= 30) score += 10;
-    else if (yearsEstablished >= 20) score += 5;
-    else if (yearsEstablished >= 10) score += 2;
-  }
-  
-  return Math.min(100, Math.max(0, score));
+function estimateWaiver(profile: StudentProfile, university: University): string {
+  const combined = profile.hscGpa + profile.sscGpa;
+  const band = university.scholarshipPolicies.find((policy) => combined >= policy.minCombinedGpa);
+  return band ? `${band.waiver} likely · ${band.note}` : 'Waiver depends on admission performance and current circular.';
 }
 
-// Calculate overall match score
-function calculateMatchScore(
-  student: StudentProfile,
-  program: Program,
-  university: University,
-  weights: ScoringWeights = DEFAULT_WEIGHTS
-): MatchScores {
-  const affordabilityScore = calculateAffordabilityScore(student, program);
-  const gpaFitScore = calculateGPAFitScore(student, program);
-  const locationScore = calculateLocationScore(student, university);
-  const qualityScore = calculateQualityScore(university, program);
-  const facilitiesScore = calculateFacilitiesScore(university, student);
-  const reputationScore = calculateReputationScore(university);
-  
-  // Calculate weighted average
-  const overall = Math.round(
-    (affordabilityScore * weights.affordability +
-     gpaFitScore * weights.gpaFit +
-     locationScore * weights.location +
-     qualityScore * weights.quality +
-     facilitiesScore * weights.facilities +
-     reputationScore * weights.reputation) / 100
-  );
-  
-  return {
-    overall: Math.min(100, Math.max(0, overall)),
-    affordability: affordabilityScore,
-    gpaFit: gpaFitScore,
-    location: locationScore,
-    quality: qualityScore,
-    facilities: facilitiesScore
+function priorityAdjustedScore(profile: StudentProfile, university: University, program: DepartmentProgram): number {
+  const rawScores = {
+    affordability: getBudgetScore(profile, program),
+    gpa: getGpaScore(profile, program),
+    quality: getQualityScore(university),
+    reputation: getReputationScore(university),
+    facilities: getFacilitiesScore(university),
   };
+
+  const ordered: Array<keyof typeof rawScores> = profile.orderedPriorities.length > 0
+    ? [...profile.orderedPriorities]
+    : ['quality', 'affordability', 'gpa', 'reputation', 'facilities'];
+
+  let weightedTotal = 0;
+  let weightSum = 0;
+  ordered.forEach((key, index) => {
+    const weight = priorityWeightByRank[index] ?? 0.8;
+    weightedTotal += rawScores[key] * weight;
+    weightSum += weight;
+  });
+
+  const areaScore = getAreaScore(profile, university);
+  const baseline = weightedTotal / weightSum;
+  const finalScore = baseline * 0.88 + areaScore * 0.12;
+  return Math.max(0, Math.min(100, Math.round(finalScore)));
 }
 
-// Generate match explanation
-function generateMatchExplanation(
-  scores: MatchScores,
-  student: StudentProfile,
-  program: Program,
-  university: University
-): string {
-  const explanations: string[] = [];
-  
-  // Affordability explanation
-  if (scores.affordability >= 80) {
-    explanations.push(`Highly affordable with total fees of ৳${program.totalTuitionFee.toLocaleString()}, well within your budget.`);
-  } else if (scores.affordability >= 60) {
-    explanations.push(`Fits your budget with total fees of ৳${program.totalTuitionFee.toLocaleString()}.`);
-  } else if (scores.affordability >= 40) {
-    explanations.push(`Slightly over your stated budget but still manageable.`);
+function buildReasons(profile: StudentProfile, university: University, program: DepartmentProgram): string[] {
+  const reasons = [
+    `${university.name} is ${university.ugcStatus === 'approved' ? 'UGC approved' : 'listed with a caution notice'}, and UGC status is always prioritized first.`,
+    `${program.name} requires a minimum GPA of ${program.minimumGpa.toFixed(1)}, while your HSC GPA is ${profile.hscGpa.toFixed(2)}.`,
+    `Estimated total cost is ৳${program.totalCost.toLocaleString()}, aligned against your selected budget: ${profile.budgetRange}.`,
+  ];
+
+  const area = areaMap.get(university.areaId);
+  if (area) reasons.push(`Campus area: ${area.label} (${area.livingCost}).`);
+  if (profile.orderedPriorities.length > 0) {
+    reasons.push(`Your priorities favor ${profile.orderedPriorities.map((item) => priorityIndex.get(item) ?? item).join(', ')}.`);
   }
-  
-  // GPA fit explanation
-  const requiredGPA = getRequiredGPAForGroup(program, student.hscGroup);
-  if (scores.gpaFit >= 80) {
-    explanations.push(`Your GPA of ${student.hscGpa} comfortably meets the requirement${requiredGPA ? ` of ${requiredGPA}` : ''}.`);
-  } else if (scores.gpaFit >= 50) {
-    explanations.push(`Your GPA is close to the requirement${requiredGPA ? ` of ${requiredGPA}` : ''}.`);
-  }
-  
-  // Location explanation
-  if (scores.location >= 80) {
-    explanations.push(`Located in ${university.district}, matching your preferred location.`);
-  }
-  
-  // Quality explanation
-  if (scores.quality >= 80) {
-    explanations.push(`${university.name} has strong academic standing with full UGC accreditation.`);
-  }
-  
-  // Ranking mention for top universities
-  if (university.rankingNational && university.rankingNational <= 5) {
-    explanations.push(`Ranked #${university.rankingNational} among private universities in Bangladesh.`);
-  }
-  
-  return explanations.join(' ') || 'This program matches your basic requirements.';
+
+  return reasons;
 }
 
-// Generate pros and cons
-function generateProsAndCons(
-  scores: MatchScores,
-  student: StudentProfile,
-  program: Program,
-  university: University
-): { pros: string[]; cons: string[] } {
-  const pros: string[] = [];
-  const cons: string[] = [];
-  
-  // Pros based on scores
-  if (scores.affordability >= 80) {
-    pros.push('Affordable tuition fees within your budget');
-  }
-  if (scores.gpaFit >= 80) {
-    pros.push('GPA requirements comfortably met');
-  }
-  if (scores.location >= 80) {
-    pros.push('Preferred location - easy commute');
-  }
-  if (university.hasPermanentCampus) {
-    pros.push('Permanent campus with modern facilities');
-  }
-  if (university.hasHousingFacilities && student.requiresHousing) {
-    pros.push('On-campus housing available');
-  }
-  if (university.ugcStatus === 'green') {
-    pros.push('Full UGC compliance - no regulatory concerns');
-  }
-  if (university.rankingNational && university.rankingNational <= 5) {
-    pros.push(`Top-ranked university (#${university.rankingNational})`);
-  }
-  if (scores.quality >= 80) {
-    pros.push('Strong academic reputation and quality');
-  }
-  
-  // Cons based on scores
-  if (scores.affordability < 50) {
-    cons.push('Tuition fees exceed your stated budget');
-  }
-  if (scores.gpaFit < 50) {
-    const requiredGPA = getRequiredGPAForGroup(program, student.hscGroup);
-    cons.push(`Your GPA ${requiredGPA ? `(${student.hscGpa}) is below the typical requirement (${requiredGPA})` : 'may not meet requirements'}`);
-  }
-  if (!university.hasPermanentCampus) {
-    cons.push('No permanent campus (operates from rented facilities)');
-  }
-  if (university.ugcStatus === 'yellow') {
-    cons.push('UGC has issued warnings - verify current status before applying');
-  }
-  if (scores.location < 50) {
-    cons.push('Location may require significant commute');
-  }
-  if (student.requiresHousing && !university.hasHousingFacilities) {
-    cons.push('No on-campus housing available');
-  }
-  if (university.rankingNational && university.rankingNational > 15) {
-    cons.push('Lower national ranking - research program quality carefully');
-  }
-  
-  return { pros, cons };
+export function getProgramsForUniversity(universityId: string): DepartmentProgram[] {
+  return programs
+    .filter((program) => program.universityId === universityId)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Generate UGC warning if applicable
-function generateUGCWarning(university: University): string | undefined {
-  if (university.ugcStatus === 'red') {
-    return `WARNING: ${university.name} has been flagged by UGC. We do not recommend applying to this institution. ${university.ugcStatusReason || ''}`;
-  }
-  
-  if (university.ugcStatus === 'yellow') {
-    return `NOTICE: ${university.name} has had compliance issues in the past. Please verify current UGC status before applying. ${university.ugcStatusReason || ''}`;
-  }
-  
-  return undefined;
-}
+export function generateRecommendations(profile: StudentProfile, limit = 12): Recommendation[] {
+  const relevantPrograms = programs.filter((program) => profile.academicInterests.length === 0 || profile.academicInterests.includes(program.categoryId));
 
-// Main recommendation function
-export function generateRecommendations(
-  student: StudentProfile,
-  limit: number = 10
-): Recommendation[] {
-  const weights: ScoringWeights = {
-    affordability: student.weightAffordability ?? DEFAULT_WEIGHTS.affordability,
-    gpaFit: student.weightGpaFit ?? DEFAULT_WEIGHTS.gpaFit,
-    location: student.weightLocation ?? DEFAULT_WEIGHTS.location,
-    quality: student.weightQuality ?? DEFAULT_WEIGHTS.quality,
-    facilities: student.weightFacilities ?? DEFAULT_WEIGHTS.facilities,
-    reputation: student.weightReputation ?? DEFAULT_WEIGHTS.reputation
-  };
-  
-  const recommendations: Recommendation[] = [];
-  
-  // Filter programs by faculty preference if specified
-  let programsToConsider = mockPrograms;
-  if (student.preferredFaculties && student.preferredFaculties.length > 0) {
-    programsToConsider = mockPrograms.filter(p => 
-      student.preferredFaculties!.includes(p.faculty)
-    );
-  }
-  
-  // Generate recommendations for each program
-  for (const program of programsToConsider) {
-    const university = mockUniversities.find(u => u.id === program.universityId);
-    
-    if (!university || !university.isActive) continue;
-    
-    // Skip universities with RED UGC status
-    if (university.ugcStatus === 'red') continue;
-    
-    // Skip if scholarship required but not available (simplified check)
-    if (student.requiresScholarship && university.rankingNational && university.rankingNational > 10) {
-      // Less likely to have scholarships at lower-ranked universities
-      continue;
-    }
-    
-    const scores = calculateMatchScore(student, program, university, weights);
-    const { pros, cons } = generateProsAndCons(scores, student, program, university);
-    
-    const recommendation: Recommendation = {
-      program,
-      university,
-      scores,
-      matchExplanation: generateMatchExplanation(scores, student, program, university),
-      pros,
-      cons,
-      ugcWarning: generateUGCWarning(university),
-      createdAt: new Date().toISOString()
-    };
-    
-    recommendations.push(recommendation);
-  }
-  
-  // Sort by overall match score (descending)
-  recommendations.sort((a, b) => b.scores.overall - a.scores.overall);
-  
-  // Return top N recommendations
-  return recommendations.slice(0, limit);
-}
+  const recs = relevantPrograms
+    .map((program) => {
+      const university = universities.find((item) => item.id === program.universityId);
+      if (!university) return null;
+      return {
+        university,
+        program,
+        score: priorityAdjustedScore(profile, university, program),
+        waiverEstimate: estimateWaiver(profile, university),
+        reasons: buildReasons(profile, university, program),
+      } satisfies Recommendation;
+    })
+    .filter((item): item is Recommendation => Boolean(item));
 
-// Filter recommendations by minimum score
-export function filterRecommendationsByScore(
-  recommendations: Recommendation[],
-  minScore: number
-): Recommendation[] {
-  return recommendations.filter(r => r.scores.overall >= minScore);
+  return recs
+    .sort((a, b) => {
+      if (a.university.ugcStatus !== b.university.ugcStatus) {
+        return a.university.ugcStatus === 'approved' ? -1 : 1;
+      }
+      if (b.score !== a.score) return b.score - a.score;
+      return a.university.ranking - b.university.ranking;
+    })
+    .slice(0, limit);
 }
-
-// Get recommendation statistics
-export function getRecommendationStats(recommendations: Recommendation[]) {
-  if (recommendations.length === 0) {
-    return {
-      averageScore: 0,
-      highestScore: 0,
-      lowestScore: 0,
-      totalMatches: 0
-    };
-  }
-  
-  const scores = recommendations.map(r => r.scores.overall);
-  return {
-    averageScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
-    highestScore: Math.max(...scores),
-    lowestScore: Math.min(...scores),
-    totalMatches: recommendations.length
-  };
-}
-
-// Export individual scoring functions for testing
-export const ScoringFunctions = {
-  calculateAffordabilityScore,
-  calculateGPAFitScore,
-  calculateLocationScore,
-  calculateQualityScore,
-  calculateFacilitiesScore,
-  calculateReputationScore,
-  calculateMatchScore
-};
