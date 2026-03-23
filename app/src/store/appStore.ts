@@ -1,159 +1,96 @@
-// Zustand Store for UniMatch Bangladesh
-// Manages application state for student profile, recommendations, and UI
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { 
-  StudentProfile, 
-  Recommendation, 
-  FormStep,
-  ScoringWeights 
-} from '@/types';
-import { DEFAULT_WEIGHTS } from '@/types';
+import { generateRecommendations } from '@/lib/recommendationEngine';
+import { type Recommendation, type StudentProfile } from '@/types';
 
-// Interface for the store state
 interface AppState {
-  // Current form step
-  currentStep: FormStep;
-  setCurrentStep: (step: FormStep) => void;
-  
-  // Student profile
-  studentProfile: Partial<StudentProfile>;
-  updateStudentProfile: (updates: Partial<StudentProfile>) => void;
-  resetStudentProfile: () => void;
-  
-  // Scoring weights
-  scoringWeights: ScoringWeights;
-  updateScoringWeights: (weights: Partial<ScoringWeights>) => void;
-  resetScoringWeights: () => void;
-  
-  // Recommendations
+  isLoggedIn: boolean;
+  submittedProfile: StudentProfile | null;
+  draftProfile: Partial<StudentProfile>;
   recommendations: Recommendation[];
-  setRecommendations: (recommendations: Recommendation[]) => void;
-  savedRecommendations: string[]; // IDs of saved recommendations
-  toggleSaveRecommendation: (recommendationId: string) => void;
-  
-  // UI State
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
-  error: string | null;
-  setError: (error: string | null) => void;
-  
-  // Filters
-  minMatchScore: number;
-  setMinMatchScore: (score: number) => void;
-  selectedFaculties: string[];
-  toggleFacultyFilter: (faculty: string) => void;
-  
-  // Session
-  sessionId: string;
+  loginLabel: string;
+  login: (label?: string) => void;
+  logout: () => void;
+  updateDraftProfile: (updates: Partial<StudentProfile>) => void;
+  clearDraftProfile: () => void;
+  submitProfile: (profile: StudentProfile) => void;
 }
 
-// Generate a unique session ID
-const generateSessionId = () => {
-  return 'session_' + Math.random().toString(36).substring(2, 15);
+const initialDraft: Partial<StudentProfile> = {
+  preferredAreas: [],
+  academicInterests: [],
+  orderedPriorities: [],
 };
 
-// Initial student profile
-const initialStudentProfile: Partial<StudentProfile> = {
-  hscGpa: undefined,
-  hscGroup: undefined,
-  maxBudgetTotal: undefined,
-  preferredDistricts: [],
-  requiresHousing: false,
-  preferredFaculties: [],
-  requiresScholarship: false,
-  weightAffordability: DEFAULT_WEIGHTS.affordability,
-  weightGpaFit: DEFAULT_WEIGHTS.gpaFit,
-  weightLocation: DEFAULT_WEIGHTS.location,
-  weightQuality: DEFAULT_WEIGHTS.quality,
-  weightFacilities: DEFAULT_WEIGHTS.facilities,
-  weightReputation: DEFAULT_WEIGHTS.reputation
-};
+function sanitizeDraftProfile(value: unknown): Partial<StudentProfile> {
+  if (!value || typeof value !== 'object') {
+    return { ...initialDraft };
+  }
 
-// Create the store
+  const candidate = value as Partial<StudentProfile>;
+  return {
+    ...candidate,
+    preferredAreas: Array.isArray(candidate.preferredAreas) ? candidate.preferredAreas : [],
+    academicInterests: Array.isArray(candidate.academicInterests) ? candidate.academicInterests : [],
+    orderedPriorities: Array.isArray(candidate.orderedPriorities) ? candidate.orderedPriorities : [],
+  };
+}
+
 export const useAppStore = create<AppState>()(
   persist(
-    (set, _get) => ({
-      // Form step
-      currentStep: 'academic',
-      setCurrentStep: (step) => set({ currentStep: step }),
-      
-      // Student profile
-      studentProfile: initialStudentProfile,
-      updateStudentProfile: (updates) => set((state) => ({
-        studentProfile: { ...state.studentProfile, ...updates }
-      })),
-      resetStudentProfile: () => set({ 
-        studentProfile: initialStudentProfile,
-        recommendations: [],
-        savedRecommendations: []
-      }),
-      
-      // Scoring weights
-      scoringWeights: DEFAULT_WEIGHTS,
-      updateScoringWeights: (weights) => set((state) => ({
-        scoringWeights: { ...state.scoringWeights, ...weights }
-      })),
-      resetScoringWeights: () => set({ scoringWeights: DEFAULT_WEIGHTS }),
-      
-      // Recommendations
+    (set) => ({
+      isLoggedIn: false,
+      submittedProfile: null,
+      draftProfile: { ...initialDraft },
       recommendations: [],
-      setRecommendations: (recommendations) => set({ recommendations }),
-      savedRecommendations: [],
-      toggleSaveRecommendation: (recommendationId) => set((state) => {
-        const isSaved = state.savedRecommendations.includes(recommendationId);
-        if (isSaved) {
-          return {
-            savedRecommendations: state.savedRecommendations.filter(id => id !== recommendationId)
-          };
-        } else {
-          return {
-            savedRecommendations: [...state.savedRecommendations, recommendationId]
-          };
-        }
+      loginLabel: 'Guest',
+      login: (label = 'Student') => set({ isLoggedIn: true, loginLabel: label }),
+      logout: () => set({ isLoggedIn: false, loginLabel: 'Guest' }),
+      updateDraftProfile: (updates) => set((state) => ({
+        draftProfile: sanitizeDraftProfile({ ...state.draftProfile, ...updates }),
+      })),
+      clearDraftProfile: () => set({ draftProfile: { ...initialDraft }, recommendations: [], submittedProfile: null }),
+      submitProfile: (profile) => set({
+        submittedProfile: profile,
+        draftProfile: sanitizeDraftProfile(profile),
+        recommendations: generateRecommendations(profile),
       }),
-      
-      // UI State
-      isLoading: false,
-      setIsLoading: (loading) => set({ isLoading: loading }),
-      error: null,
-      setError: (error) => set({ error }),
-      
-      // Filters
-      minMatchScore: 0,
-      setMinMatchScore: (score) => set({ minMatchScore: score }),
-      selectedFaculties: [],
-      toggleFacultyFilter: (faculty) => set((state) => {
-        const isSelected = state.selectedFaculties.includes(faculty);
-        if (isSelected) {
-          return {
-            selectedFaculties: state.selectedFaculties.filter(f => f !== faculty)
-          };
-        } else {
-          return {
-            selectedFaculties: [...state.selectedFaculties, faculty]
-          };
-        }
-      }),
-      
-      // Session
-      sessionId: generateSessionId()
     }),
     {
-      name: 'unimatch-storage',
-      partialize: (state) => ({
-        studentProfile: state.studentProfile,
-        savedRecommendations: state.savedRecommendations,
-        sessionId: state.sessionId
-      })
-    }
-  )
-);
+      name: 'unimatch-app',
+      version: 2,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return {
+            isLoggedIn: false,
+            loginLabel: 'Guest',
+            draftProfile: { ...initialDraft },
+          };
+        }
 
-// Selector hooks for better performance
-export const useStudentProfile = () => useAppStore(state => state.studentProfile);
-export const useRecommendations = () => useAppStore(state => state.recommendations);
-export const useCurrentStep = () => useAppStore(state => state.currentStep);
-export const useIsLoading = () => useAppStore(state => state.isLoading);
-export const useScoringWeights = () => useAppStore(state => state.scoringWeights);
+        const state = persistedState as Partial<AppState>;
+        return {
+          isLoggedIn: Boolean(state.isLoggedIn),
+          loginLabel: typeof state.loginLabel === 'string' ? state.loginLabel : 'Guest',
+          draftProfile: sanitizeDraftProfile(state.draftProfile),
+        };
+      },
+      merge: (persistedState, currentState) => {
+        const state = (persistedState && typeof persistedState === 'object') ? persistedState as Partial<AppState> : {};
+        return {
+          ...currentState,
+          isLoggedIn: Boolean(state.isLoggedIn),
+          loginLabel: typeof state.loginLabel === 'string' ? state.loginLabel : currentState.loginLabel,
+          draftProfile: sanitizeDraftProfile(state.draftProfile),
+          submittedProfile: null,
+          recommendations: [],
+        };
+      },
+      partialize: (state) => ({
+        isLoggedIn: state.isLoggedIn,
+        loginLabel: state.loginLabel,
+        draftProfile: sanitizeDraftProfile(state.draftProfile),
+      }),
+    },
+  ),
+);
